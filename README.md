@@ -1,16 +1,96 @@
 # Dev and AI Tools
 
-A collection of development automation tools centered around sandboxed Claude Code execution and multi-agent task orchestration.
+A collection of development automation tools for AI-assisted software development. Write requirements, let AI agents build it.
 
-## Overview
+## My Development Workflow
 
-This repository provides:
+This is how I build software with this toolkit:
 
-1. **Claude Code Sandbox** — A secure, isolated Podman container for running Claude Code with filesystem and network isolation
-2. **Agentic Task Orchestration** — A multi-agent workflow system where AI agents (Developer, Test Writer, Judge) collaborate to implement software projects
-3. **Project Bootstrap Skills** — Custom Claude Code skills for scaffolding projects from requirements to executable workflows
+### Step 1: Write Requirements
+
+Create `docs/requirements.md` describing what I want to build:
+- Features and functionality
+- User stories or use cases
+- Technical constraints or preferences
+- Any other context
+
+### Step 2: Generate Architecture and Tasks
+
+Run the `project-bootstrap` skill to transform requirements into concrete plans:
+
+```bash
+tools/run-claude-sandbox.sh --task "Read .claude/skills/project-bootstrap/SKILL.md and bootstrap from docs/requirements.md"
+```
+
+This produces:
+- `docs/ARCHITECTURE.md` — Complete technical design (tech stack, data models, API design, deployment architecture)
+- `docs/TASKS.md` — Ordered task breakdown with acceptance criteria and verify scopes
+
+I review both documents and make any corrections before proceeding.
+
+### Step 3: Scaffold the Agentic Workflow
+
+Run the `agentic-scaffold` skill to convert the plans into an executable workflow:
+
+```bash
+tools/run-claude-sandbox.sh --task "Read .claude/skills/agentic-scaffold/SKILL.md and scaffold from docs/TASKS.md and docs/ARCHITECTURE.md"
+```
+
+This creates:
+- `tasks/specs/task-{id}.md` — Individual task specifications
+- `tasks/TASK_LIST.md` — Master checklist with cursor tracking
+- `tasks/personas/` — Agent role definitions (Developer, Test Writer, Judge)
+- `tasks/ARCHITECTURE_REF.md` — Condensed architecture reference
+- `loop.sh` — Automated build loop script
+
+### Step 4: Run the Build Loop
+
+Execute the automated build process:
+
+```bash
+./loop.sh
+```
+
+The loop runs continuously, executing each task through four stages:
+
+```
+┌─────────┐     ┌──────────┐     ┌────────┐     ┌───────┐
+│   DEV   │ --> │   TEST   │ --> │ VERIFY │ --> │ JUDGE │
+│ persona │     │ persona  │     │  auto  │     │persona│
+└─────────┘     └──────────┘     └────────┘     └───────┘
+     ↑                                  │              │
+     │                              FAIL│          FAIL│
+     │                                  │              │
+     └──────────────────────────────────┴──────────────┘
+                    Loop back with feedback
+```
+
+- **DEV**: Implements the task spec
+- **TEST**: Writes adversarial tests
+- **VERIFY**: Runs the test suite
+- **JUDGE**: Scores code quality on 5 dimensions
+
+Tasks that fail loop back with specific feedback. Tasks that pass advance to the next task. The build continues until all tasks are approved or a task becomes blocked after 3 retry attempts.
+
+The loop exits when `tasks/BUILD_STATUS.md` shows either:
+- `APPROVED` — All tasks passed, build is complete
+- `FAILED` — A task was blocked after 3 attempts or the final judge rejected the build
+
+### Step 5: Review and Push
+
+When the build completes successfully, I push to git for review:
+
+```bash
+git push
+```
+
+All implementation commits, test commits, and judge verdicts are in the git history, making it easy to review what was built and why.
+
+---
 
 ## What's Inside
+
+This repository provides three main components:
 
 ### 🔒 Claude Code Sandbox
 
@@ -24,14 +104,25 @@ A Podman-based wrapper (`tools/run-claude-sandbox.sh`) that runs Claude Code in 
 
 ### 🤖 Agentic Workflow System
 
-An automated development loop where tasks flow through four stages:
+An automated development loop where tasks flow through four stages with three specialized AI personas:
 
-1. **DEV** — Developer agent implements the task spec
-2. **TEST** — Test Writer agent writes adversarial tests
-3. **VERIFY** — Automated test suite execution
-4. **JUDGE** — Judge agent reviews code quality on 5 dimensions (spec compliance, implementation quality, test quality, code reuse, slop detection)
+**Developer Persona**
+- Implements exactly what's in the spec, no more/less
+- Follows architecture and existing patterns
+- Self-reviews before committing
+- Commits with `git commit -m "dev: task {id}"`
 
-Tasks that fail the Judge loop back with specific feedback. Tasks that pass advance to the next task. The build continues until all tasks are approved or a task becomes blocked after 3 attempts.
+**Test Writer Persona**
+- Writes adversarial tests to find gaps the developer missed
+- Covers all acceptance criteria and failure paths
+- Tests behavior through public interfaces
+- Commits with `git commit -m "test: task {id}"`
+
+**Judge Persona**
+- Scores on 5 dimensions (spec compliance, implementation quality, test quality, code reuse, slop detection)
+- Rejects low-quality work with specific Required Fixes
+- Not helpful, not encouraging — a strict gatekeeper against technical debt
+- Writes verdicts to `tasks/feedback/task-{id}-judge.md`
 
 ### 📋 Custom Skills
 
@@ -41,14 +132,16 @@ Three specialized skills for project automation:
 - **agentic-scaffold**: Convert architecture docs into executable multi-agent workflows
 - **deploy-update**: Safe production deployment with mandatory backup and verification
 
-## Quick Start
+---
+
+## Initial Setup
 
 ### Prerequisites
 
 - [Podman](https://podman.io/) installed
-- Claude Code authentication (first run will prompt for browser login)
+- Claude Code authentication
 
-### Initial Setup
+### First Time Setup
 
 1. Create the auth directory:
    ```bash
@@ -62,16 +155,27 @@ Three specialized skills for project automation:
 
    Claude will print a browser URL — open it and sign in. Tokens are saved and reused on future runs.
 
-### Usage Examples
+3. Copy the environment template:
+   ```bash
+   cp .env.example .env
+   ```
 
-#### Interactive Mode
+   Edit `.env` if you need to customize resource limits or paths (defaults work for most cases).
+
+---
+
+## Sandbox Usage Reference
+
+The sandbox wrapper (`tools/run-claude-sandbox.sh`) supports various modes beyond the automated workflow.
+
+### Interactive Mode
 
 Drop into a live Claude Code session:
 ```bash
 tools/run-claude-sandbox.sh
 ```
 
-#### Agentic Mode (One-Shot Tasks)
+### One-Shot Tasks
 
 Run a single task and exit:
 ```bash
@@ -82,7 +186,7 @@ tools/run-claude-sandbox.sh --task "implement pagination on /jobs endpoint"
 tools/run-claude-sandbox.sh --task-file tasks/specs/task-1.1.md
 ```
 
-#### Continue or Resume Sessions
+### Session Management
 
 ```bash
 # Continue the most recent session:
@@ -95,7 +199,7 @@ tools/run-claude-sandbox.sh --resume abc123def456
 tools/run-claude-sandbox.sh --resume
 ```
 
-#### Network Isolation
+### Network Isolation
 
 ```bash
 # Unrestricted (default) — can reach localhost:8000, localhost:5432, etc:
@@ -105,7 +209,7 @@ tools/run-claude-sandbox.sh --task "run the test suite"
 tools/run-claude-sandbox.sh --isolated --task "test the API integration"
 ```
 
-#### Advanced Options
+### Advanced Options
 
 ```bash
 # Append additional context to system prompt:
@@ -119,19 +223,55 @@ tools/run-claude-sandbox.sh --shell
 tools/run-claude-sandbox.sh --exec "make test"
 ```
 
-## Automated Build Loop
+---
 
-For multi-task projects, the agentic workflow automates the entire build:
+## How the Judge Works
 
-```bash
-# Run tasks continuously until approved or blocked:
-./loop.sh
-```
+The Judge persona scores each task on 5 dimensions, rating 1–5 and marking each as blocking or non-blocking:
 
-The loop:
-1. Runs `tools/run-claude-sandbox.sh --task-file tasks/RUN.md`
-2. Checks `tasks/BUILD_STATUS.md`
-3. Continues if status is `PENDING`, exits if `APPROVED` or `FAILED`
+### 1. Spec Compliance
+Does the implementation meet every acceptance criterion?
+- **Blocking if score < 4/5**
+
+### 2. Implementation Quality
+Is the code simple, readable, and structurally sound?
+- **Blocking if score < 3/5**
+
+### 3. Test Quality
+Do the tests meaningfully verify functionality?
+- **Blocking if score < 3/5**
+
+### 4. Code Reuse & Consistency
+Does it follow existing patterns and use existing helpers?
+- **Blocking if score < 3/5**
+
+### 5. Slop Detection
+Is it free of AI-generated padding and noise?
+- **Blocking if score < 3/5**
+
+### Slop Indicators
+
+The Judge rejects implementations with:
+- Comments that restate code
+- Generic variable names (`result`, `data`, `response`, `temp`, `obj`)
+- Pass-through functions that just call one other function
+- Defensive null checks on things that cannot be null
+- Trivially-passing tests (`assert True`, `assert x is not None`)
+- Docstrings on self-explanatory functions
+- Unused imports or variables
+- TODO/FIXME comments in submitted code
+- Code written to look thorough rather than be thorough
+
+### Retry Logic
+
+If the Judge returns `FAIL`:
+1. All checkboxes for DEV/TEST/VERIFY/JUDGE are unchecked
+2. Attempt counters increment
+3. If any counter exceeds 3, the task is marked `[BLOCKED]` and the build stops
+4. Otherwise, cursor moves back to DEV with feedback file reference updated
+5. Developer reads the feedback and addresses all Required Fixes
+
+---
 
 ## Project Structure
 
@@ -161,128 +301,28 @@ tools/
 └── README.md            # Detailed sandbox documentation
 
 loop.sh                  # Automated build loop
+.env.example            # Environment configuration template
 ```
 
-## Creating a New Project with Agentic Workflow
-
-### Step 1: Bootstrap from Requirements
-
-Create a `docs/requirements.md` file with your project requirements, then:
-
-```bash
-tools/run-claude-sandbox.sh --task "Read .claude/skills/project-bootstrap/SKILL.md and bootstrap from docs/requirements.md"
-```
-
-This produces:
-- `docs/ARCHITECTURE.md` — Complete technical design
-- `docs/TASKS.md` — Ordered task breakdown with acceptance criteria
-
-### Step 2: Review and Approve
-
-Review both documents and make any corrections. These are the blueprints for your automated build.
-
-### Step 3: Scaffold the Workflow
-
-```bash
-tools/run-claude-sandbox.sh --task "Read .claude/skills/agentic-scaffold/SKILL.md and scaffold from docs/TASKS.md and docs/ARCHITECTURE.md"
-```
-
-This produces:
-- `tasks/specs/task-{id}.md` — Individual task specifications
-- `tasks/TASK_LIST.md` — Master checklist with cursor tracking
-- `tasks/personas/` — Agent role definitions
-- `tasks/ARCHITECTURE_REF.md` — Condensed reference for agents
-- `tasks/RUN.md` and `tasks/BUILD_STATUS.md` — Execution control files
-- `loop.sh` — Executable build loop
-
-### Step 4: Run the Build
-
-One step at a time:
-```bash
-tools/run-claude-sandbox.sh --task-file tasks/RUN.md
-```
-
-Or fully automated:
-```bash
-./loop.sh
-```
-
-The system will:
-1. Read the `→ NEXT:` cursor in `tasks/TASK_LIST.md`
-2. Load the appropriate persona
-3. Execute the current stage (DEV/TEST/VERIFY/JUDGE)
-4. Update checkboxes and move the cursor
-5. Repeat until approved or blocked
-
-## How the Agentic Workflow Works
-
-### Task Flow
-
-Each task goes through four stages:
-
-```
-┌─────────┐     ┌──────────┐     ┌────────┐     ┌───────┐
-│   DEV   │ --> │   TEST   │ --> │ VERIFY │ --> │ JUDGE │
-│ persona │     │ persona  │     │  auto  │     │persona│
-└─────────┘     └──────────┘     └────────┘     └───────┘
-                                       │              │
-                                       │              │
-                                   FAIL│          FAIL│
-                                       │              │
-                                       └──────┬───────┘
-                                              │
-                                              ↓
-                                    Loop back to DEV
-                                    (with feedback)
-```
-
-- **DEV**: Implements exactly what's in the spec, commits with `git commit -m "dev: task {id}"`
-- **TEST**: Writes adversarial tests to find gaps, commits with `git commit -m "test: task {id}"`
-- **VERIFY**: Runs the test suite (command varies by scope: backend/frontend/both)
-- **JUDGE**: Scores on 5 dimensions, writes verdict to `tasks/feedback/task-{id}-judge.md`
-
-### Judge Scoring Dimensions
-
-1. **Spec Compliance** — Are all acceptance criteria met? (Blocking if < 4/5)
-2. **Implementation Quality** — Is the code simple and structurally sound? (Blocking if < 3/5)
-3. **Test Quality** — Do tests meaningfully verify functionality? (Blocking if < 3/5)
-4. **Code Reuse & Consistency** — Does it follow existing patterns? (Blocking if < 3/5)
-5. **Slop Detection** — Is it free of AI-generated padding? (Blocking if < 3/5)
-
-### Slop Detection
-
-The Judge rejects implementations with:
-- Comments that restate code
-- Generic variable names (`result`, `data`, `response`, `temp`, `obj`)
-- Pass-through functions
-- Defensive null checks on things that cannot be null
-- Trivially-passing tests (`assert True`)
-- Unused imports/variables
-- TODO/FIXME comments
-- Code written to look thorough rather than be thorough
-
-### Retry Logic
-
-If the Judge returns `FAIL`:
-1. All checkboxes for DEV/TEST/VERIFY/JUDGE are unchecked
-2. Attempt counters increment
-3. If any counter exceeds 3, the task is marked `[BLOCKED]` and the build stops
-4. Otherwise, cursor moves back to DEV with feedback file reference updated
-5. Developer reads the feedback and addresses all Required Fixes
+---
 
 ## Configuration
 
-Environment variables (set in `.env` or shell):
+Environment variables (set in `.env`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAUDE_SANDBOX_CONTAINERFILE` | (auto-detected) | Path to Containerfile relative to repo root |
-| `CLAUDE_SANDBOX_IMAGE` | `localhost/claude-sandbox:latest` | Image name |
+| `PODMAN_PROJECT` | (basename of worktree) | Project identifier for container/network naming |
+| `NEXUS_SLOT` | `0` | Slot number for parallel sandbox instances |
+| `CLAUDE_SANDBOX_IMAGE` | `localhost/claude-sandbox:latest` | Container image name |
+| `CLAUDE_SANDBOX_CONTAINERFILE` | (auto-detected) | Path to Containerfile |
 | `CLAUDE_SANDBOX_AUTH_DIR` | `~/.claude-sandbox/auth` | Auth token directory |
 | `CLAUDE_SANDBOX_MEMORY` | `4g` | Memory limit |
 | `CLAUDE_SANDBOX_CPUS` | `2` | CPU limit |
 
-The sandbox script automatically loads all variables from `.env` and forwards them into the container.
+All variables from `.env` are automatically forwarded into the container.
+
+---
 
 ## Portability
 
@@ -294,17 +334,23 @@ The sandbox system is project-agnostic. To use in a different project:
    - `.claude-sandbox/Containerfile`
    - `docker/claude-sandbox/Containerfile`
    - `Containerfile.claude-sandbox`
-3. Ensure your project has a `.env` file (the script walks up from current directory to find it)
+3. Ensure your project has a `.env` file with at least `PODMAN_PROJECT` set
 4. Run `mkdir -p ~/.claude-sandbox/auth && tools/run-claude-sandbox.sh` to authenticate
+
+The skills (project-bootstrap, agentic-scaffold) can be copied to any project's `.claude/skills/` directory.
+
+---
 
 ## Tips
 
-- **First run**: Use interactive mode to test the sandbox before running automated tasks
-- **Debugging**: Use `--shell` mode to debug container issues
-- **Task specs**: Be specific in acceptance criteria — vague criteria lead to Judge failures
-- **Personas are strict**: The Judge is designed to reject low-quality work by default
-- **Feedback is specific**: Judge verdicts include file:line references for every Required Fix
-- **View sessions**: Sessions are stored in the container's `~/.claude` directory (persisted via volume mount)
+- **Spec quality matters**: Specific acceptance criteria in `docs/requirements.md` lead to better task breakdowns and fewer Judge failures
+- **Review before scaffolding**: Fix any issues in `docs/ARCHITECTURE.md` and `docs/TASKS.md` before running agentic-scaffold — changing them after requires re-scaffolding
+- **Let it run**: The loop is designed to run unattended — resist the urge to intervene mid-task
+- **Judge feedback is specific**: Failed tasks get file:line references for every Required Fix
+- **Three strikes**: After 3 failed attempts, a task is marked `[BLOCKED]` and you need to manually investigate
+- **Git history tells the story**: Each task creates 2-4 commits (dev, test, sometimes retry iterations) — use `git log` to see what happened
+
+---
 
 ## License
 
