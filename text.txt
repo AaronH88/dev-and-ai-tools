@@ -1,0 +1,3 @@
+Role: DEV
+Model: Claude Opus 4.6 (claude-opus-4-6)
+Timestamp: 2026-03-30
