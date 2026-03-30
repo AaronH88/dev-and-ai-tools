@@ -65,10 +65,12 @@ The loop runs continuously, executing each task through four stages:
                     Loop back with feedback
 ```
 
-- **DEV**: Implements the task spec
-- **TEST**: Writes adversarial tests
+- **DEV**: Implements the task spec (uses Sonnet)
+- **TEST**: Writes adversarial tests (uses Sonnet)
 - **VERIFY**: Runs the test suite
-- **JUDGE**: Scores code quality on 5 dimensions
+- **JUDGE**: Scores code quality on 5 dimensions (uses Opus for deeper reasoning)
+
+The loop automatically selects the best model for each stage — Opus for Judge stages where code review quality matters most, Sonnet for implementation and testing.
 
 Tasks that fail loop back with specific feedback. Tasks that pass advance to the next task. The build continues until all tasks are approved or a task becomes blocked after 3 retry attempts.
 
@@ -212,6 +214,9 @@ tools/run-claude-sandbox.sh --isolated --task "test the API integration"
 ### Advanced Options
 
 ```bash
+# Use a specific Claude model (sonnet|opus|haiku):
+tools/run-claude-sandbox.sh --task "implement auth" --model opus
+
 # Append additional context to system prompt:
 tools/run-claude-sandbox.sh --task "implement auth" \
   --append-system-prompt-file tasks/ARCHITECTURE_REF.md

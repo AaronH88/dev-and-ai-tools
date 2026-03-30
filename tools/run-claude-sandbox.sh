@@ -18,6 +18,7 @@
 # COMPOSABLE FLAGS:
 #   --append-system-prompt-file <path>   Append additional system prompt from file
 #   --agents <json>                      Define custom subagents (JSON passed through)
+#   --model <model>                      Claude model to use (sonnet|opus|haiku)
 #
 # NETWORK:
 #   (no flag)                  Unrestricted: can reach all local services
@@ -93,6 +94,7 @@ SESSION_FLAG=""
 SESSION_ID=""
 APPEND_SYSTEM_PROMPT_FILE=""
 AGENTS_JSON=""
+MODEL=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -135,6 +137,11 @@ while [ $# -gt 0 ]; do
         --agents)
             [ $# -lt 2 ] && die "--agents requires JSON"
             AGENTS_JSON="$2"
+            shift 2
+            ;;
+        --model)
+            [ $# -lt 2 ] && die "--model requires a value (sonnet|opus|haiku)"
+            MODEL="$2"
             shift 2
             ;;
         --shell)
@@ -355,6 +362,10 @@ if [ "$MODE" = "interactive" ] || [ "$MODE" = "agentic" ]; then
         CONTAINER_CMD+=(--agents "$AGENTS_JSON")
     fi
 
+    if [ -n "$MODEL" ]; then
+        CONTAINER_CMD+=(--model "$MODEL")
+    fi
+
 elif [ "$MODE" = "shell" ]; then
     CONTAINER_CMD=(/bin/bash)
 
@@ -390,6 +401,9 @@ echo "  Session:   $SESSION_MODE"
 echo "  Isolated:  $ISOLATED"
 echo "  Container: $CONTAINER_NAME"
 echo "  Memory:    $MEMORY_LIMIT  |  CPUs: $CPU_LIMIT"
+if [ -n "$MODEL" ]; then
+    echo "  Model:     $MODEL"
+fi
 if [ -n "$APPEND_SYSTEM_PROMPT_FILE" ]; then
     echo "  Sys prompt: ${APPEND_SYSTEM_PROMPT_FILE#"$WORKTREE_ROOT"/}"
 fi

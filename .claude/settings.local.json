@@ -1,0 +1,8 @@
+{
+  "enabledMcpjsonServers": [
+    "fetch"
+  ],
+  "disabledMcpjsonServers": [
+    "jira-mcp"
+  ]
+}

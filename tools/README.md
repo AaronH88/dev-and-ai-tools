@@ -94,6 +94,12 @@ tools/run-claude-sandbox.sh --task "..." \
   --agents '{"explore": {"description": "Custom explorer"}}'
 ```
 
+**Custom model selection:**
+```bash
+# Use a specific Claude model (sonnet|opus|haiku):
+tools/run-claude-sandbox.sh --task "..." --model opus
+```
+
 #### Configuration
 
 Environment variable overrides (set in `.env` or shell):
