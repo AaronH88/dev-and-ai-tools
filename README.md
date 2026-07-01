@@ -128,11 +128,17 @@ An automated development loop where tasks flow through four stages with three sp
 
 ### 📋 Custom Skills
 
-Three specialized skills for project automation:
+Five specialized skills for project automation:
 
 - **project-bootstrap**: Transform requirements into complete architecture + task breakdown
 - **agentic-scaffold**: Convert architecture docs into executable multi-agent workflows
 - **deploy-update**: Safe production deployment with mandatory backup and verification
+- **aarons_pr_review_style**: Critical PR review — fetches diff, analyzes for bugs/race conditions/security issues, posts inline findings as a bulk GitHub review grouped by severity
+- **babysit-prs**: Monitor and maintain open PRs — checks merge health, CI status, and reviewer comments, then takes action (fixes code, rebases, replies to reviewers). Includes a feedback loop that extracts reviewer learnings into skills for continuous improvement
+
+### 🪝 Hooks
+
+- **skill-counter**: A `UserPromptSubmit` hook that counts prompts per session and periodically triggers a skill review directive, prompting Claude to create, update, or remove auto-generated skills in `.claude/skills/auto/` based on conversation patterns
 
 ---
 
@@ -286,8 +292,12 @@ If the Judge returns `FAIL`:
 │   ├── developer.md       # Implementation role
 │   ├── judge.md          # Quality gatekeeper role
 │   └── test_writer.md    # Adversarial testing role
+├── hooks/                # Event-driven hooks
+│   └── skill-counter.sh  # Auto skill review every N prompts
 ├── skills/               # Custom Claude Code skills
+│   ├── aarons_pr_review_style/  # Critical inline PR reviews
 │   ├── agentic-scaffold/
+│   ├── babysit-prs/      # PR monitoring and maintenance
 │   ├── deploy-update/
 │   └── project-bootstrap/
 ├── templates/            # Templates for agentic workflow
@@ -295,7 +305,8 @@ If the Judge returns `FAIL`:
 │   ├── RUN.md
 │   ├── TASK_LIST.md
 │   └── loop.sh
-└── settings.local.json   # Claude settings
+├── settings.json         # Project-level Claude settings (hooks config)
+└── settings.local.json   # Claude settings (MCP servers)
 
 containers/
 └── claude-sandbox/
